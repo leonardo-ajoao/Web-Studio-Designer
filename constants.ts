@@ -54,7 +54,8 @@ export const INITIAL_CONFIG: DesignConfig = {
   rimLight: false,
   fillLight: false,
   influence: 0.5,
-  aspectRatio: '1:1'
+  aspectRatio: '1:1',
+  imageCount: 1
 };
 
 export const PLACEHOLDER_IMAGE = "https://picsum.photos/800/800";

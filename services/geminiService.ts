@@ -80,16 +80,21 @@ export const constructPrompt = (config: DesignConfig, isRefinement: boolean = fa
   const niche = NICHES.find(n => n.id === config.niche);
   
   // ---------------------------------------------------------
-  // PRIORITY 0: REFORMATTING (ASPECT RATIO CHANGE)
+  // PRIORITY 0: REFORMATTING (INTELLIGENT OUTPAINTING)
   // ---------------------------------------------------------
-  // Logic: STRICT consistency. Do not change the subject. Just extend background.
   if (isReformat) {
-      let prompt = `TASK: IMAGE EXTENSION / OUTPAINTING. `;
-      prompt += `I have provided an image. You must adapt this EXACT image to the new aspect ratio of ${config.aspectRatio}. `;
-      prompt += `CRITICAL: Do NOT change the main subject, their pose, their face, or the core lighting. Keep the central content identical. `;
-      prompt += `ACTION: Analyze the background environment and "paint" the missing areas to fit the new frame. `;
-      prompt += `If the image is becoming taller, extend the floor/sky. If wider, extend the side environment. `;
-      prompt += `Maintain seamless continuity with the original image style. Quality: 8k.`;
+      let prompt = `TASK: HIGH-FIDELITY IMAGE OUTPAINTING & RATIO ADAPTATION. `;
+      prompt += `Output Ratio: ${config.aspectRatio}. `;
+      
+      prompt += `CRITICAL INSTRUCTIONS: `;
+      prompt += `1. IDENTITY LOCK: The central subject and original image content must remain 100% UNCHANGED. Do not redraw the subject. `;
+      prompt += `2. EDGE ANALYSIS: Analyze the textures, lighting, and geometry at the very edges of the provided image. `;
+      prompt += `3. SEAMLESS EXTENSION: If the edge is a floor, extend the floor texture/pattern naturally. If it is a sky, extend the gradient/clouds. If it is a wall, extend the architectural lines. `;
+      prompt += `4. NO FILLERS: Do NOT use solid colors, blurred borders, or letterboxing. The expansion must be fully detailed and photorealistic. `;
+      prompt += `5. LIGHTING CONTINUITY: The new areas must respect the light falloff and shadows of the original image. `;
+      
+      prompt += `CONTEXT AWARENESS: "Understand the scene. If it's a street, continue the asphalt/markings. If it's a room, continue the furniture/decor style." `;
+      prompt += `Quality: 8k, seamless blending, undetectable edit.`;
       return prompt;
   }
 
@@ -136,32 +141,22 @@ export const constructPrompt = (config: DesignConfig, isRefinement: boolean = fa
   return prompt;
 };
 
-export const generateDesign = async (config: DesignConfig, previousImage?: string, isVariation: boolean = false, isReformat: boolean = false): Promise<string> => {
-  try {
-    const isRefinement = !!previousImage;
-    const prompt = constructPrompt(config, isRefinement, isVariation, isReformat);
+// Internal function to call single API request
+const fetchSingleImage = async (config: DesignConfig, previousImage?: string, isVariation: boolean = false, isReformat: boolean = false): Promise<string> => {
+    const prompt = constructPrompt(config, !!previousImage, isVariation, isReformat);
     const parts: any[] = [{ text: prompt }];
 
     if (previousImage) {
-        // ---------------------------------------------------------
-        // IMAGE-TO-IMAGE FLOW (Refinement, Variation, Reformat)
-        // ---------------------------------------------------------
         const base64Data = previousImage.includes('base64,') ? previousImage.split(',')[1] : previousImage;
         parts.push({ inlineData: { mimeType: 'image/png', data: base64Data } });
-        
-        if (isReformat) parts[0].text += " [SOURCE IMAGE FOR RESIZING]";
+        if (isReformat) parts[0].text += " [EXTEND THIS IMAGE CONTENT]";
         else parts[0].text += " [SOURCE IMAGE]";
-
     } else {
-        // ---------------------------------------------------------
-        // TEXT-TO-IMAGE FLOW (Creation)
-        // ---------------------------------------------------------
         if (config.subjectImage) {
             const base64Data = config.subjectImage.split(',')[1];
             parts.push({ inlineData: { mimeType: 'image/png', data: base64Data } });
             parts[0].text += " [IMAGE 1: MAIN SUBJECT]";
         }
-
         if (config.secondaryImage) {
              const base64Data = config.secondaryImage.split(',')[1];
              parts.push({ inlineData: { mimeType: 'image/png', data: base64Data } });
@@ -172,9 +167,7 @@ export const generateDesign = async (config: DesignConfig, previousImage?: strin
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
       contents: { parts },
-      config: {
-        imageConfig: { aspectRatio: config.aspectRatio }
-      }
+      config: { imageConfig: { aspectRatio: config.aspectRatio } }
     });
 
     const candidates = response.candidates;
@@ -185,8 +178,21 @@ export const generateDesign = async (config: DesignConfig, previousImage?: strin
             }
         }
     }
-    
     throw new Error("No image generated.");
+};
+
+export const generateDesign = async (config: DesignConfig, previousImage?: string, isVariation: boolean = false, isReformat: boolean = false): Promise<string[]> => {
+  try {
+    const count = config.imageCount || 1;
+    
+    // Execute requests in parallel for efficiency
+    // We create an array of promises based on the count
+    const promises = Array(count).fill(null).map(() => 
+        fetchSingleImage(config, previousImage, isVariation, isReformat)
+    );
+
+    const results = await Promise.all(promises);
+    return results;
 
   } catch (error) {
     console.error("Gemini Generation Error:", error);

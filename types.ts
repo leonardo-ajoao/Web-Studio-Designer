@@ -22,6 +22,9 @@ export interface DesignConfig {
   
   influence: number;
   aspectRatio: AspectRatio;
+  
+  // New: Number of images to generate
+  imageCount: 1 | 2 | 3 | 4;
 }
 
 export interface Message {
@@ -29,6 +32,7 @@ export interface Message {
   role: 'user' | 'model';
   text?: string;
   imageUrl?: string;
+  imageCandidates?: string[]; // New: Store multiple options in chat history
   isThinking?: boolean;
   timestamp: Date;
 }
@@ -37,7 +41,7 @@ export interface NicheOption {
   id: string;
   label: string;
   promptModifier: string;
-  iconId: string; // Changed to match constants usage
+  iconId: string; 
 }
 
 export type AspectRatio = '1:1' | '3:4' | '4:3' | '9:16' | '16:9';
@@ -46,4 +50,15 @@ export interface GenerationState {
   isGenerating: boolean;
   progress: number;
   currentTask: string;
+}
+
+// New: Defines a saved project state
+export interface ProjectState {
+  id: string;
+  name: string;
+  timestamp: Date;
+  config: DesignConfig;
+  history: string[];
+  lastImage: string | null;
+  messages: Message[];
 }

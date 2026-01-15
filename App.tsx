@@ -2,13 +2,17 @@ import React, { useState, useEffect, useRef } from 'react';
 import Sidebar from './components/Sidebar';
 import Canvas from './components/Canvas';
 import ChatInterface from './components/ChatInterface';
-import { DesignConfig, Message, AspectRatio } from './types';
+import { DesignConfig, Message, AspectRatio, ProjectState } from './types';
 import { INITIAL_CONFIG } from './constants';
 import { generateDesign, upscaleImage } from './services/geminiService';
 
 const App: React.FC = () => {
   const [config, setConfig] = useState<DesignConfig>(INITIAL_CONFIG);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
+  
+  // New: Store candidates when generating > 1 image
+  const [candidates, setCandidates] = useState<string[]>([]);
+
   const [history, setHistory] = useState<string[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
@@ -20,6 +24,8 @@ const App: React.FC = () => {
     }
   ]);
   const [isTyping, setIsTyping] = useState(false);
+  
+  const [savedProjects, setSavedProjects] = useState<ProjectState[]>([]);
 
   // Resize State
   const [sidebarWidth, setSidebarWidth] = useState(440);
@@ -60,27 +66,57 @@ const App: React.FC = () => {
     };
   }, [isResizingLeft, isResizingRight]);
 
-  const addMessage = (role: 'user' | 'model', text: string, image?: string) => {
+  const addMessage = (role: 'user' | 'model', text: string, image?: string, imageCandidates?: string[]) => {
     setMessages(prev => [...prev, {
       id: Date.now().toString(),
       role,
       text,
       imageUrl: image,
+      imageCandidates, // Pass candidates to chat history
       timestamp: new Date()
     }]);
   };
 
-  const handleReset = () => {
-      if (window.confirm("Deseja apagar tudo e começar um novo projeto?")) {
+  const handleArchiveAndReset = () => {
+      // Only archive if there is content (an image or at least some prompt)
+      const hasContent = generatedImage || config.subjectDescription.length > 5 || messages.length > 2;
+
+      if (window.confirm(hasContent ? "Deseja salvar o projeto atual no histórico e iniciar um novo?" : "Iniciar novo projeto?")) {
+          
+          if (hasContent) {
+              const newProject: ProjectState = {
+                  id: Date.now().toString(),
+                  name: config.subjectDescription.substring(0, 30) || "Projeto Sem Título",
+                  timestamp: new Date(),
+                  config: { ...config }, // Deep copy
+                  history: [...history],
+                  lastImage: generatedImage,
+                  messages: [...messages]
+              };
+              setSavedProjects(prev => [newProject, ...prev]);
+          }
+
+          // Reset everything
           setConfig(INITIAL_CONFIG);
           setGeneratedImage(null);
+          setCandidates([]);
           setHistory([]);
           setMessages([{
               id: Date.now().toString(),
               role: 'model',
-              text: 'Projeto reiniciado. Vamos começar de novo!',
+              text: 'Projeto arquivado com sucesso. Espaço limpo para novas ideias!',
               timestamp: new Date()
           }]);
+      }
+  };
+
+  const handleRestoreProject = (project: ProjectState) => {
+      if (window.confirm(`Restaurar o projeto "${project.name}"? O trabalho atual não salvo será perdido.`)) {
+          setConfig(project.config);
+          setGeneratedImage(project.lastImage);
+          setCandidates([]);
+          setHistory(project.history);
+          setMessages(project.messages);
       }
   };
 
@@ -89,7 +125,7 @@ const App: React.FC = () => {
       logUserMessage: boolean = true, 
       previousImage?: string, 
       isVariation: boolean = false,
-      isReformat: boolean = false // New flag
+      isReformat: boolean = false 
   ) => {
     setIsProcessing(true);
     setIsTyping(true);
@@ -99,25 +135,36 @@ const App: React.FC = () => {
        if (isReformat) {
            promptSummary = `Ajustar formato para ${currentConfig.aspectRatio} (Manter sujeito)`;
        } else if (isVariation) {
-           promptSummary = 'Criar variação criativa desta imagem';
+           promptSummary = `Criar ${currentConfig.imageCount || 1} variações criativas desta imagem`;
        } else if (previousImage) {
            promptSummary = `Refinar imagem: ${currentConfig.subjectDescription}`;
        } else {
-           promptSummary = `Criar imagem (${currentConfig.niche}) - ${currentConfig.subjectDescription || 'automático'}`;
+           promptSummary = `Criar ${currentConfig.imageCount || 1}x imagens (${currentConfig.niche}) - ${currentConfig.subjectDescription || 'automático'}`;
        }
             
        addMessage('user', promptSummary);
     }
 
     try {
-      // Pass parameters to service
-      const imageUrl = await generateDesign(currentConfig, previousImage, isVariation, isReformat);
+      // Service now returns an Array of strings
+      const results = await generateDesign(currentConfig, previousImage, isVariation, isReformat);
       
-      setGeneratedImage(imageUrl);
-      setHistory(prev => [imageUrl, ...prev]);
+      if (results.length === 1) {
+          // Single Image Result
+          const img = results[0];
+          setGeneratedImage(img);
+          setCandidates([]); // Clear candidates
+          setHistory(prev => [img, ...prev]);
+          addMessage('model', isVariation ? 'Variação gerada.' : isReformat ? 'Formato ajustado com sucesso.' : 'Design gerado com sucesso.', img);
+      } else {
+          // Multiple Images Result
+          setCandidates(results);
+          // Don't set generatedImage yet, wait for user selection
+          setGeneratedImage(null); 
+          addMessage('model', `Gerei ${results.length} versões. Escolha a sua preferida no painel central para continuarmos editando.`, undefined, results);
+      }
       
       setIsTyping(false);
-      addMessage('model', isVariation ? 'Variação gerada.' : isReformat ? 'Formato ajustado com sucesso.' : 'Design gerado com sucesso.', imageUrl);
     } catch (error) {
       setIsTyping(false);
       addMessage('model', 'Desculpe, tive um problema ao gerar a imagem. Tente novamente.');
@@ -128,7 +175,6 @@ const App: React.FC = () => {
   };
 
   const handleGenerate = () => {
-    // Standard generation (new image)
     executeGeneration(config);
   };
 
@@ -148,6 +194,14 @@ const App: React.FC = () => {
   const handleVariation = async () => {
       if (!generatedImage) return;
       executeGeneration(config, true, generatedImage, true, false);
+  };
+
+  // Called when user clicks an image in the Candidate Grid
+  const handleSelectCandidate = (url: string) => {
+      setGeneratedImage(url);
+      setCandidates([]); // Exit selection mode
+      setHistory(prev => [url, ...prev]);
+      addMessage('user', 'Opção selecionada. Vamos trabalhar nesta versão.');
   };
 
   const handleUpscale = async () => {
@@ -195,7 +249,9 @@ const App: React.FC = () => {
             setConfig={setConfig} 
             onGenerate={handleGenerate}
             isGenerating={isProcessing}
-            onReset={handleReset}
+            onReset={handleArchiveAndReset}
+            savedProjects={savedProjects}
+            onRestore={handleRestoreProject}
         />
         {/* Resize Handle Right */}
         <div 
@@ -212,11 +268,13 @@ const App: React.FC = () => {
       {/* 2. Canvas (Center) */}
       <Canvas 
         imageUrl={generatedImage}
+        candidates={candidates} // Pass multiple images if available
+        onSelectCandidate={handleSelectCandidate} // Pass selection handler
         history={history}
         onUpscale={handleUpscale}
         onVariation={handleVariation} 
         onRatioChange={handleRatioChange}
-        onSelectHistory={setGeneratedImage}
+        onSelectHistory={(url) => { setGeneratedImage(url); setCandidates([]); }}
         isProcessing={isProcessing}
         currentRatio={config.aspectRatio}
       />

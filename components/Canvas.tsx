@@ -2,15 +2,17 @@ import React, { useState, useRef, useEffect } from 'react';
 import { 
   Download, Maximize2, Sparkles, 
   Smartphone, Monitor, Instagram, RefreshCcw, Image, 
-  History, ZoomIn, ZoomOut, Shuffle
+  History, ZoomIn, ZoomOut, Shuffle, CheckCircle
 } from 'lucide-react';
 import { AspectRatio } from '../types';
 
 interface CanvasProps {
   imageUrl: string | null;
+  candidates?: string[]; // New: Array of generated images
+  onSelectCandidate: (url: string) => void; // New: Selection handler
   history: string[];
   onUpscale: () => void;
-  onVariation: () => void; // New prop
+  onVariation: () => void;
   onRatioChange: (ratio: AspectRatio) => void;
   onSelectHistory: (url: string) => void;
   isProcessing: boolean;
@@ -28,7 +30,7 @@ const Tooltip: React.FC<{ text: string; children: React.ReactNode }> = ({ text, 
 );
 
 const Canvas: React.FC<CanvasProps> = ({ 
-    imageUrl, history, onUpscale, onVariation, onRatioChange, onSelectHistory, isProcessing, currentRatio
+    imageUrl, candidates, onSelectCandidate, history, onUpscale, onVariation, onRatioChange, onSelectHistory, isProcessing, currentRatio
 }) => {
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -37,15 +39,15 @@ const Canvas: React.FC<CanvasProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const [showHistory, setShowHistory] = useState(false);
 
-  useEffect(() => { setScale(1); setPosition({ x: 0, y: 0 }); }, [imageUrl]);
+  useEffect(() => { setScale(1); setPosition({ x: 0, y: 0 }); }, [imageUrl, candidates]);
 
   const handleWheel = (e: React.WheelEvent) => {
-    if (!imageUrl) return;
+    if (!imageUrl && !candidates) return;
     setScale(Math.min(Math.max(0.5, scale - e.deltaY * 0.001), 4));
   };
   
   const handleMouseDown = (e: React.MouseEvent) => {
-    if (!imageUrl) return;
+    if (!imageUrl && !candidates) return;
     setIsDragging(true);
     setDragStart({ x: e.clientX - position.x, y: e.clientY - position.y });
   };
@@ -68,6 +70,35 @@ const Canvas: React.FC<CanvasProps> = ({
         console.error("Download failed", e);
     }
   };
+
+  // Render Grid for Candidates
+  if (candidates && candidates.length > 1) {
+      return (
+          <div className="flex-1 flex flex-col items-center justify-center bg-gray-50/50 relative overflow-hidden">
+               <div className="z-10 bg-white/90 backdrop-blur-sm px-6 py-3 rounded-full shadow-lg border border-brand-100 mb-6 flex items-center gap-2">
+                   <Sparkles size={16} className="text-brand-600 animate-pulse" />
+                   <span className="text-sm font-bold text-slate-700">Escolha a melhor versão para continuar</span>
+               </div>
+               
+               <div className="grid grid-cols-2 gap-6 p-10 max-w-4xl max-h-full overflow-y-auto">
+                   {candidates.map((img, idx) => (
+                       <div 
+                         key={idx} 
+                         onClick={() => onSelectCandidate(img)}
+                         className="relative group cursor-pointer rounded-2xl overflow-hidden border-4 border-white shadow-md hover:shadow-xl hover:scale-105 transition-all hover:border-brand-500"
+                       >
+                           <img src={img} className="w-full h-full object-cover" />
+                           <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                               <div className="bg-white text-brand-600 px-4 py-2 rounded-full font-bold text-sm flex items-center gap-2 transform translate-y-4 group-hover:translate-y-0 transition-transform">
+                                   <CheckCircle size={16} /> Selecionar
+                               </div>
+                           </div>
+                       </div>
+                   ))}
+               </div>
+          </div>
+      );
+  }
 
   return (
     <div className="flex-1 flex flex-col relative overflow-hidden bg-gray-50/50">

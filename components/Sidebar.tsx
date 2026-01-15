@@ -4,9 +4,9 @@ import {
   Wand2, Sparkles, Loader2, Plus, ArrowUpLeft, ArrowUp, ArrowUpRight,
   ArrowLeft, Circle, ArrowRight, ArrowDownLeft, ArrowDown, ArrowDownRight,
   Camera, Layers, Aperture, Command, Trash2, AlignVerticalJustifyCenter, AlignVerticalJustifyStart, AlignVerticalJustifyEnd,
-  Cpu, Megaphone, Stethoscope, Wrench, Shirt, Sun
+  Cpu, Megaphone, Stethoscope, Wrench, Shirt, Sun, RotateCcw, FolderOpen, Clock, X, Grid2X2
 } from 'lucide-react';
-import { DesignConfig, NicheOption } from '../types';
+import { DesignConfig, NicheOption, ProjectState } from '../types';
 import { NICHES } from '../constants';
 import { enhancePrompt } from '../services/geminiService';
 
@@ -15,7 +15,9 @@ interface SidebarProps {
   setConfig: React.Dispatch<React.SetStateAction<DesignConfig>>;
   onGenerate: () => void;
   isGenerating: boolean;
-  onReset: () => void;
+  onReset: () => void; 
+  savedProjects: ProjectState[];
+  onRestore: (project: ProjectState) => void;
 }
 
 const Tooltip: React.FC<{ text: string; children: React.ReactNode }> = ({ text, children }) => (
@@ -85,10 +87,11 @@ const IconMap: Record<string, React.ReactNode> = {
     cpu: <Cpu size={16} />
 };
 
-const Sidebar: React.FC<SidebarProps> = ({ config, setConfig, onGenerate, isGenerating, onReset }) => {
+const Sidebar: React.FC<SidebarProps> = ({ config, setConfig, onGenerate, isGenerating, onReset, savedProjects, onRestore }) => {
   const subjectInputRef = useRef<HTMLInputElement>(null);
   const secondaryInputRef = useRef<HTMLInputElement>(null);
   const [isEnhancing, setIsEnhancing] = useState(false);
+  const [showProjects, setShowProjects] = useState(false);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, field: 'subjectImage' | 'secondaryImage') => {
     const file = e.target.files?.[0];
@@ -110,9 +113,77 @@ const Sidebar: React.FC<SidebarProps> = ({ config, setConfig, onGenerate, isGene
     } catch (e) { console.error(e); } finally { setIsEnhancing(false); }
   };
 
+  // Section Resets
+  const resetLighting = () => {
+      setConfig(prev => ({
+          ...prev,
+          niche: NICHES[0].id,
+          rimLight: false,
+          fillLight: false,
+          lightingDirection: 'top-right',
+          lightingColor: '#3b82f6'
+      }));
+  };
+
+  const resetCamera = () => {
+      setConfig(prev => ({
+          ...prev,
+          cameraAngle: 0,
+          cameraVertical: 0,
+          cameraZoom: 5
+      }));
+  };
+
   return (
-    <div className="w-full h-full flex flex-col z-20 bg-slate-50/90 backdrop-blur-md border-r border-slate-200 shadow-xl overflow-hidden text-slate-900">
+    <div className="w-full h-full flex flex-col z-20 bg-slate-50/90 backdrop-blur-md border-r border-slate-200 shadow-xl overflow-hidden text-slate-900 relative">
       
+      {/* PROJECT HISTORY DRAWER */}
+      {showProjects && (
+          <div className="absolute inset-0 z-50 bg-white/95 backdrop-blur-xl flex flex-col animate-in slide-in-from-left duration-300">
+              <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                      <FolderOpen size={20} className="text-brand-600"/>
+                      <h2 className="font-bold text-lg text-slate-900">Meus Projetos</h2>
+                  </div>
+                  <button onClick={() => setShowProjects(false)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-500">
+                      <X size={20} />
+                  </button>
+              </div>
+              <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                  {savedProjects.length === 0 ? (
+                      <div className="text-center text-slate-400 mt-20">
+                          <Clock size={40} className="mx-auto mb-4 opacity-50"/>
+                          <p>Nenhum projeto salvo no histórico.</p>
+                      </div>
+                  ) : (
+                      savedProjects.map(project => (
+                          <div key={project.id} onClick={() => { onRestore(project); setShowProjects(false); }} className="group cursor-pointer bg-white border border-slate-200 rounded-xl p-3 flex gap-4 hover:border-brand-500 hover:shadow-md transition-all">
+                              <div className="w-20 h-20 bg-slate-100 rounded-lg overflow-hidden flex-shrink-0">
+                                  {project.lastImage ? (
+                                      <img src={project.lastImage} className="w-full h-full object-cover" />
+                                  ) : (
+                                      <div className="w-full h-full flex items-center justify-center text-slate-300"><ImageIcon size={24}/></div>
+                                  )}
+                              </div>
+                              <div className="flex flex-col justify-center">
+                                  <h3 className="font-bold text-sm text-slate-900 group-hover:text-brand-600 transition-colors line-clamp-1">
+                                      {project.name || "Projeto Sem Título"}
+                                  </h3>
+                                  <span className="text-[10px] text-slate-500 flex items-center gap-1 mt-1">
+                                      <Clock size={10} />
+                                      {project.timestamp.toLocaleString()}
+                                  </span>
+                                  <span className="text-[10px] text-slate-400 mt-2 bg-slate-50 px-2 py-1 rounded w-fit">
+                                      {project.history.length} versões geradas
+                                  </span>
+                              </div>
+                          </div>
+                      ))
+                  )}
+              </div>
+          </div>
+      )}
+
       {/* HEADER */}
       <div className="p-6 pb-4 flex-shrink-0 flex items-center justify-between border-b border-slate-100 bg-white/50">
         <div className="flex items-center gap-3 select-none">
@@ -126,14 +197,25 @@ const Sidebar: React.FC<SidebarProps> = ({ config, setConfig, onGenerate, isGene
           </div>
         </div>
 
-        <Tooltip text="Reiniciar Projeto">
-            <button 
-                onClick={onReset}
-                className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
-            >
-                <Trash2 size={18} />
-            </button>
-        </Tooltip>
+        <div className="flex items-center gap-1">
+            <Tooltip text="Projetos Salvos">
+                <button 
+                    onClick={() => setShowProjects(true)}
+                    className="p-2 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-all"
+                >
+                    <FolderOpen size={18} />
+                </button>
+            </Tooltip>
+            <div className="w-px h-6 bg-slate-200 mx-1"></div>
+            <Tooltip text="Novo Projeto (Salvar & Limpar)">
+                <button 
+                    onClick={onReset}
+                    className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                >
+                    <Trash2 size={18} />
+                </button>
+            </Tooltip>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-6">
@@ -211,19 +293,25 @@ const Sidebar: React.FC<SidebarProps> = ({ config, setConfig, onGenerate, isGene
         </section>
 
         {/* --- MODULE 2: AMBIENCE & LIGHTING (Merged) --- */}
-        <section className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
+        <section className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 relative group/section">
              <div className="flex items-center justify-between mb-4">
                  <div className="flex items-center gap-2 text-brand-700">
                     <Sun size={16} strokeWidth={2.5} />
                     <h3 className="font-bold text-xs uppercase tracking-wider">Estúdio & Luz</h3>
                  </div>
-                 {/* Rim Light Toggle */}
-                 <button 
-                    onClick={() => setConfig({...config, rimLight: !config.rimLight})}
-                    className={`w-8 h-5 rounded-full p-0.5 transition-colors ${config.rimLight ? 'bg-brand-500' : 'bg-slate-200'}`}
-                 >
-                    <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${config.rimLight ? 'translate-x-3' : 'translate-x-0'}`} />
-                 </button>
+                 
+                 <div className="flex items-center gap-2">
+                     <Tooltip text="Resetar Luz">
+                         <button onClick={resetLighting} className="p-1 text-slate-300 hover:text-slate-500 transition-colors"><RotateCcw size={14}/></button>
+                     </Tooltip>
+                     {/* Rim Light Toggle */}
+                     <button 
+                        onClick={() => setConfig({...config, rimLight: !config.rimLight})}
+                        className={`w-8 h-5 rounded-full p-0.5 transition-colors ${config.rimLight ? 'bg-brand-500' : 'bg-slate-200'}`}
+                     >
+                        <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${config.rimLight ? 'translate-x-3' : 'translate-x-0'}`} />
+                     </button>
+                 </div>
              </div>
 
              {/* Niche Selector (Ambience) */}
@@ -275,10 +363,15 @@ const Sidebar: React.FC<SidebarProps> = ({ config, setConfig, onGenerate, isGene
         </section>
 
         {/* --- MODULE 3: LENSES (Improved Visuals) --- */}
-        <section className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-             <div className="flex items-center gap-2 mb-4 text-brand-700">
-                <Camera size={16} strokeWidth={2.5} />
-                <h3 className="font-bold text-xs uppercase tracking-wider">Lentes & Ângulo</h3>
+        <section className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 relative group/section">
+             <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2 text-brand-700">
+                    <Camera size={16} strokeWidth={2.5} />
+                    <h3 className="font-bold text-xs uppercase tracking-wider">Lentes & Ângulo</h3>
+                </div>
+                <Tooltip text="Resetar Lentes">
+                    <button onClick={resetCamera} className="p-1 text-slate-300 hover:text-slate-500 transition-colors"><RotateCcw size={14}/></button>
+                </Tooltip>
              </div>
 
              <div className="flex items-end justify-between gap-2">
@@ -320,7 +413,30 @@ const Sidebar: React.FC<SidebarProps> = ({ config, setConfig, onGenerate, isGene
       </div>
 
       {/* FOOTER */}
-      <div className="p-6 pt-2 bg-slate-50 border-t border-slate-200">
+      <div className="p-6 pt-2 bg-slate-50 border-t border-slate-200 space-y-3">
+        {/* Quantity Selector */}
+        <div className="flex items-center justify-between bg-white rounded-lg p-1 border border-slate-200">
+             <div className="flex items-center gap-2 px-2">
+                 <Grid2X2 size={14} className="text-slate-400"/>
+                 <span className="text-[10px] font-bold text-slate-500 uppercase">Variações</span>
+             </div>
+             <div className="flex">
+                 {[1, 2, 3, 4].map((num) => (
+                     <button
+                        key={num}
+                        onClick={() => setConfig({...config, imageCount: num as any})}
+                        className={`w-8 h-7 text-xs font-bold rounded-md transition-all ${
+                            config.imageCount === num 
+                            ? 'bg-brand-600 text-white shadow-sm' 
+                            : 'text-slate-400 hover:text-brand-600 hover:bg-slate-50'
+                        }`}
+                     >
+                         {num}
+                     </button>
+                 ))}
+             </div>
+        </div>
+
         <button
           onClick={onGenerate}
           disabled={isGenerating}

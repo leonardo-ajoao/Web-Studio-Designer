@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, Paperclip, MoreHorizontal, Sparkles, PenTool, Sliders, Zap, Camera, X } from 'lucide-react';
+import { Send, Bot, User, Paperclip, MoreHorizontal, Sparkles, PenTool, Sliders, Zap, Camera, X, Grid2X2 } from 'lucide-react';
 import { Message, DesignConfig } from '../types';
 
 interface ChatInterfaceProps {
@@ -114,6 +114,18 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ messages, onSendMessage, 
                             <img src={msg.imageUrl} alt="Result" className="w-full h-auto rounded-sm" />
                          </div>
                        )}
+                       
+                       {/* Display Candidates in Chat if available */}
+                       {msg.imageCandidates && msg.imageCandidates.length > 1 && (
+                           <div className="mt-3 grid grid-cols-2 gap-2">
+                               {msg.imageCandidates.map((img, idx) => (
+                                   <div key={idx} className="relative aspect-square rounded-md overflow-hidden border border-slate-200">
+                                       <img src={img} className="w-full h-full object-cover" />
+                                       <div className="absolute inset-0 bg-black/10"></div>
+                                   </div>
+                               ))}
+                           </div>
+                       )}
                     </div>
                     <span className="text-[10px] text-slate-400 mt-1 font-medium">
                        {msg.timestamp.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
@@ -137,7 +149,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ messages, onSendMessage, 
 
       {/* Input Area */}
       <div className="p-4 bg-white border-t border-slate-100">
-         <div className="flex justify-end mb-2">
+         <div className="flex justify-between items-center mb-2">
             <button 
                 onClick={() => setShowTools(!showTools)}
                 className={`text-[10px] font-bold flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all uppercase tracking-wider ${showTools ? 'bg-brand-50 text-brand-700' : 'text-slate-500 hover:bg-slate-100'}`}
@@ -145,6 +157,24 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ messages, onSendMessage, 
                 <Sliders size={12} />
                 Ajustes
             </button>
+            
+            {/* Image Count Selector Chat */}
+            <div className="flex items-center gap-1 bg-slate-50 rounded-md p-0.5 border border-slate-200">
+                {[1, 2, 3, 4].map((num) => (
+                    <button
+                        key={num}
+                        onClick={() => setConfig({...config, imageCount: num as any})}
+                        className={`w-6 h-6 text-[10px] font-bold rounded transition-all ${
+                            config.imageCount === num 
+                            ? 'bg-white text-brand-600 shadow-sm border border-slate-100' 
+                            : 'text-slate-400 hover:text-slate-600'
+                        }`}
+                        title={`Gerar ${num} versões`}
+                    >
+                        {num}
+                    </button>
+                ))}
+            </div>
          </div>
 
          <form onSubmit={handleSubmit} className="relative">
