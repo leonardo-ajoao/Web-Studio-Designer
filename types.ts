@@ -1,20 +1,22 @@
 export interface DesignConfig {
   subjectImage: string | null;
-  secondaryImage: string | null; // New: For merging/reference
+  secondaryImage: string | null; 
   subjectDescription: string;
-  isCharacterGen: boolean; // New: Toggles "Identity Preservation" mode
   
+  // Composition
+  subjectPosition: 'center' | 'top' | 'bottom';
+
   // Camera
   cameraAngle: number; 
   cameraVertical: number;
   cameraZoom: number; 
   
-  niche: string;
+  niche: string; // Ambientação / Style
   
   // Advanced Lighting
   backgroundColor: string;
-  lightingColor: string; // New: Specific color for the rim light
-  lightingDirection: string; // New: 'top-left', 'center', etc.
+  lightingColor: string; 
+  lightingDirection: string; 
   rimLight: boolean;
   fillLight: boolean;
   
@@ -35,7 +37,7 @@ export interface NicheOption {
   id: string;
   label: string;
   promptModifier: string;
-  icon?: string;
+  iconId: string; // Changed to match constants usage
 }
 
 export type AspectRatio = '1:1' | '3:4' | '4:3' | '9:16' | '16:9';

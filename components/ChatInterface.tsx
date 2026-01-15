@@ -1,15 +1,18 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, Paperclip, MoreHorizontal, Sparkles, PenTool } from 'lucide-react';
-import { Message } from '../types';
+import { Send, Bot, User, Paperclip, MoreHorizontal, Sparkles, PenTool, Sliders, Zap, Camera, X } from 'lucide-react';
+import { Message, DesignConfig } from '../types';
 
 interface ChatInterfaceProps {
   messages: Message[];
   onSendMessage: (text: string) => void;
   isTyping: boolean;
+  config: DesignConfig;
+  setConfig: React.Dispatch<React.SetStateAction<DesignConfig>>;
 }
 
-const ChatInterface: React.FC<ChatInterfaceProps> = ({ messages, onSendMessage, isTyping }) => {
+const ChatInterface: React.FC<ChatInterfaceProps> = ({ messages, onSendMessage, isTyping, config, setConfig }) => {
   const [input, setInput] = useState('');
+  const [showTools, setShowTools] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -24,62 +27,95 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ messages, onSendMessage, 
   };
 
   return (
-    <div className="w-full flex flex-col h-full z-20 border-l border-gray-100/50 bg-white/50 backdrop-blur-sm">
+    <div className="w-full flex flex-col h-full z-20 border-l border-slate-200 bg-white relative">
       
       {/* Header */}
-      <div className="p-5 flex items-center justify-between border-b border-gray-100/50">
-         <div className="flex items-center gap-3 group cursor-default">
-            <div className="w-10 h-10 rounded-xl bg-black flex items-center justify-center text-white shadow-lg shadow-black/20 group-hover:scale-105 group-hover:shadow-black/30 transition-all duration-300">
-               <PenTool size={20} />
+      <div className="p-4 flex items-center justify-between border-b border-slate-100 bg-white">
+         <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-brand-50 flex items-center justify-center text-brand-600 border border-brand-100">
+               <Bot size={20} />
             </div>
             <div>
-               <h3 className="font-bold text-gray-900 leading-tight group-hover:text-black transition-colors">Designer Assistente</h3>
+               <h3 className="font-bold text-slate-900 text-sm leading-tight">Designer Assistente</h3>
                <div className="flex items-center gap-1.5">
-                 <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                 <p className="text-xs text-gray-500 font-medium">Pronto para criar</p>
+                 <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
+                 <p className="text-[10px] text-slate-500 font-medium uppercase tracking-wide">Online</p>
                </div>
             </div>
          </div>
-         <button className="text-gray-400 hover:text-gray-900 p-2 hover:bg-gray-100 rounded-lg transition-all duration-200 hover:shadow-sm active:scale-95">
-            <MoreHorizontal size={20} />
-         </button>
+      </div>
+
+      {/* TOOLS DRAWER (Expandable) */}
+      <div className={`overflow-hidden transition-all duration-300 bg-slate-50 border-b border-slate-200 ${showTools ? 'max-h-96 opacity-100 shadow-inner' : 'max-h-0 opacity-0'}`}>
+         <div className="p-4 space-y-4">
+            <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-brand-600 uppercase tracking-widest bg-brand-100 px-2 py-0.5 rounded">Ajustes Rápidos</span>
+                <button onClick={() => setShowTools(false)} className="text-slate-400 hover:text-red-500"><X size={16}/></button>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+                {/* Lighting Quick Toggle */}
+                <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+                    <div className="flex items-center gap-2 text-slate-700 font-bold text-xs mb-2">
+                        <Zap size={14} className="text-brand-500" /> Luz (Rim)
+                    </div>
+                    <button 
+                        onClick={() => setConfig(prev => ({...prev, rimLight: !prev.rimLight}))}
+                        className={`w-full py-1.5 rounded-md text-[10px] font-bold transition-all border ${config.rimLight ? 'bg-brand-600 border-brand-600 text-white' : 'bg-slate-50 border-slate-200 text-slate-500'}`}
+                    >
+                        {config.rimLight ? 'ON' : 'OFF'}
+                    </button>
+                </div>
+
+                {/* Zoom Quick Control */}
+                <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+                    <div className="flex items-center gap-2 text-slate-700 font-bold text-xs mb-2">
+                        <Camera size={14} className="text-brand-500" /> Zoom
+                    </div>
+                    <input 
+                        type="range" min="1" max="10" step="0.5" 
+                        value={config.cameraZoom}
+                        onChange={(e) => setConfig(prev => ({...prev, cameraZoom: parseFloat(e.target.value)}))}
+                        className="w-full h-1 bg-slate-200 rounded-lg appearance-none cursor-pointer"
+                    />
+                </div>
+            </div>
+         </div>
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto custom-scrollbar p-5 space-y-6">
+      <div className="flex-1 overflow-y-auto custom-scrollbar p-5 space-y-6 bg-slate-50/50">
          {messages.length === 0 && (
-            <div className="text-center mt-10 opacity-60">
-               <PenTool size={32} className="text-gray-300 mx-auto mb-2" />
-               <p className="text-sm text-gray-500">Descreva sua ideia ou arraste uma imagem</p>
+            <div className="text-center mt-20 opacity-50">
+               <PenTool size={40} className="text-slate-300 mx-auto mb-4" />
+               <p className="text-sm text-slate-500 font-medium">Como posso ajudar no seu design?</p>
             </div>
          )}
 
          {messages.map((msg) => (
            <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`flex max-w-[90%] ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'} gap-2.5`}>
+              <div className={`flex max-w-[90%] gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
                  
-                 {/* Avatar */}
-                 {msg.role !== 'user' && (
-                    <div className="w-8 h-8 rounded-full bg-white border border-gray-100 flex-shrink-0 flex items-center justify-center text-black shadow-sm mt-1">
-                       <Sparkles size={14} />
-                    </div>
-                 )}
+                 {/* Square Avatars */}
+                 <div className={`w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center border shadow-sm ${msg.role === 'user' ? 'bg-slate-900 border-slate-900 text-white' : 'bg-white border-slate-200 text-brand-600'}`}>
+                    {msg.role === 'user' ? <User size={14} /> : <Sparkles size={14} />}
+                 </div>
 
-                 {/* Bubble */}
-                 <div className={`space-y-1`}>
-                    <div className={`p-4 text-sm leading-relaxed shadow-sm transition-all duration-300 hover:shadow-md ${
+                 {/* Rectangular Bubbles */}
+                 <div className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+                    <div className={`p-3.5 text-sm leading-relaxed shadow-sm border ${
                         msg.role === 'user' 
-                        ? 'bg-black text-white rounded-2xl rounded-tr-sm hover:brightness-110' 
-                        : 'bg-white border border-gray-100 text-gray-700 rounded-2xl rounded-tl-sm hover:border-gray-200'
+                        ? 'bg-slate-900 text-white rounded-lg rounded-tr-none border-slate-900' 
+                        : 'bg-white text-slate-700 rounded-lg rounded-tl-none border-slate-200'
                     }`}>
                        {msg.text}
                        {msg.imageUrl && (
-                         <div className="mt-3 rounded-xl overflow-hidden border border-gray-100 shadow-sm bg-gray-50 group hover:shadow-md transition-shadow">
-                            <img src={msg.imageUrl} alt="Result" className="w-full h-auto transition-transform duration-500 group-hover:scale-105" />
+                         <div className="mt-3 rounded-md overflow-hidden border border-slate-200 shadow-sm bg-slate-50 p-1">
+                            <img src={msg.imageUrl} alt="Result" className="w-full h-auto rounded-sm" />
                          </div>
                        )}
                     </div>
-                    <span className="text-[10px] text-gray-400 block px-2 opacity-70">
+                    <span className="text-[10px] text-slate-400 mt-1 font-medium">
                        {msg.timestamp.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                     </span>
                  </div>
@@ -89,10 +125,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ messages, onSendMessage, 
 
          {isTyping && (
            <div className="flex justify-start pl-11">
-                <div className="bg-white border border-gray-100 px-4 py-3 rounded-2xl rounded-tl-sm shadow-sm flex gap-1.5 items-center">
-                   <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0ms'}} />
-                   <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '150ms'}} />
-                   <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '300ms'}} />
+                <div className="bg-white border border-slate-200 px-3 py-2 rounded-lg rounded-tl-none shadow-sm flex gap-1 items-center">
+                   <div className="w-1.5 h-1.5 bg-slate-400 rounded-sm animate-pulse" />
+                   <div className="w-1.5 h-1.5 bg-slate-400 rounded-sm animate-pulse delay-75" />
+                   <div className="w-1.5 h-1.5 bg-slate-400 rounded-sm animate-pulse delay-150" />
                 </div>
            </div>
          )}
@@ -100,20 +136,29 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ messages, onSendMessage, 
       </div>
 
       {/* Input Area */}
-      <div className="p-5 pt-2">
-         <form onSubmit={handleSubmit} className="relative group">
-            <div className="absolute inset-0 bg-white rounded-2xl shadow-soft -z-10 transition-shadow duration-300 group-hover:shadow-lg"></div>
+      <div className="p-4 bg-white border-t border-slate-100">
+         <div className="flex justify-end mb-2">
+            <button 
+                onClick={() => setShowTools(!showTools)}
+                className={`text-[10px] font-bold flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all uppercase tracking-wider ${showTools ? 'bg-brand-50 text-brand-700' : 'text-slate-500 hover:bg-slate-100'}`}
+            >
+                <Sliders size={12} />
+                Ajustes
+            </button>
+         </div>
+
+         <form onSubmit={handleSubmit} className="relative">
             <input 
               type="text" 
-              className="w-full pl-4 pr-12 py-4 bg-white border border-gray-200 rounded-2xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-black/20 transition-all duration-300 placeholder-gray-400 group-hover:border-gray-300"
-              placeholder="Refinar design ou pedir alteração..."
+              className="w-full pl-4 pr-12 py-3 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all placeholder-slate-400"
+              placeholder="Digite sua solicitação..."
               value={input}
               onChange={(e) => setInput(e.target.value)}
             />
             <button 
                type="submit" 
                disabled={!input.trim() || isTyping}
-               className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-black text-white hover:bg-gray-800 disabled:bg-gray-200 disabled:text-gray-400 rounded-xl transition-all duration-300 hover:scale-110 active:scale-95 hover:shadow-lg hover:shadow-black/20"
+               className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-brand-600 text-white hover:bg-brand-700 disabled:bg-slate-200 disabled:text-slate-400 rounded-md transition-all shadow-md active:shadow-none"
             >
                <Send size={16} />
             </button>

@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { 
   Download, Maximize2, Sparkles, 
   Smartphone, Monitor, Instagram, RefreshCcw, Image, 
-  History, ZoomIn, ZoomOut
+  History, ZoomIn, ZoomOut, Shuffle
 } from 'lucide-react';
 import { AspectRatio } from '../types';
 
@@ -10,6 +10,7 @@ interface CanvasProps {
   imageUrl: string | null;
   history: string[];
   onUpscale: () => void;
+  onVariation: () => void; // New prop
   onRatioChange: (ratio: AspectRatio) => void;
   onSelectHistory: (url: string) => void;
   isProcessing: boolean;
@@ -27,7 +28,7 @@ const Tooltip: React.FC<{ text: string; children: React.ReactNode }> = ({ text, 
 );
 
 const Canvas: React.FC<CanvasProps> = ({ 
-    imageUrl, history, onUpscale, onRatioChange, onSelectHistory, isProcessing, currentRatio
+    imageUrl, history, onUpscale, onVariation, onRatioChange, onSelectHistory, isProcessing, currentRatio
 }) => {
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -52,6 +53,20 @@ const Canvas: React.FC<CanvasProps> = ({
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!isDragging) return;
     setPosition({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
+  };
+
+  const handleDownload = () => {
+    if (!imageUrl) return;
+    try {
+        const link = document.createElement('a');
+        link.href = imageUrl;
+        link.download = `web-studio-render-${Date.now()}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    } catch (e) {
+        console.error("Download failed", e);
+    }
   };
 
   return (
@@ -130,14 +145,28 @@ const Canvas: React.FC<CanvasProps> = ({
             </div>
 
             <div className="flex gap-3">
-                <button onClick={onUpscale} disabled={!imageUrl || isProcessing} className="flex items-center gap-2 px-4 py-2 bg-brand-50 text-brand-600 rounded-full font-bold text-xs hover:bg-brand-100 transition-all disabled:opacity-50">
-                    {isProcessing ? <RefreshCcw size={14} className="animate-spin" /> : <Sparkles size={14} />} Upscale
-                </button>
+                <Tooltip text="Criar Variação">
+                    <button onClick={onVariation} disabled={!imageUrl || isProcessing} className="p-2.5 bg-gray-50 text-gray-600 rounded-full hover:bg-gray-100 hover:text-black transition-all disabled:opacity-50">
+                        {isProcessing ? <RefreshCcw size={18} className="animate-spin" /> : <Shuffle size={18} />} 
+                    </button>
+                </Tooltip>
+
+                <Tooltip text="Upscale (4K)">
+                    <button onClick={onUpscale} disabled={!imageUrl || isProcessing} className="flex items-center gap-2 px-4 py-2 bg-brand-50 text-brand-600 rounded-full font-bold text-xs hover:bg-brand-100 transition-all disabled:opacity-50">
+                        <Sparkles size={14} /> Upscale
+                    </button>
+                </Tooltip>
+                
                 <button onClick={() => setShowHistory(!showHistory)} className="p-2.5 bg-gray-50 rounded-full hover:bg-gray-100 relative">
                     <History size={18} />
                     {history.length > 0 && <span className="absolute top-0 right-0 w-3 h-3 bg-brand-600 rounded-full animate-bounce" />}
                 </button>
-                <button disabled={!imageUrl} className="p-2.5 bg-gray-50 rounded-full hover:bg-gray-100"><Download size={18} /></button>
+                
+                <Tooltip text="Download (Imagem Atual)">
+                    <button onClick={handleDownload} disabled={!imageUrl} className="p-2.5 bg-black text-white rounded-full hover:bg-gray-800 shadow-md active:scale-95 transition-all">
+                        <Download size={18} />
+                    </button>
+                </Tooltip>
             </div>
          </div>
       </div>

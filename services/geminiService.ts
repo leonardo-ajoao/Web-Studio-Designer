@@ -30,15 +30,27 @@ export const enhancePrompt = async (originalText: string): Promise<string> => {
   }
 };
 
-const getCameraPrompt = (angle: number, vertical: number, zoom: number): string => {
+const getCameraPrompt = (config: DesignConfig): string => {
   let camPrompt = "Camera: ";
+  const { cameraAngle, cameraVertical, cameraZoom, subjectPosition } = config;
+
   // Zoom
-  if (zoom <= 3) camPrompt += "Close-up detail shot. ";
-  else if (zoom <= 7) camPrompt += "Medium waist-up shot. ";
+  if (cameraZoom <= 3) camPrompt += "Close-up detail shot. ";
+  else if (cameraZoom <= 7) camPrompt += "Medium waist-up shot. ";
   else camPrompt += "Wide full-body shot. ";
 
   // Angles
-  camPrompt += `Angle: ${angle} degrees rotation, ${vertical} degrees vertical tilt. `;
+  camPrompt += `Angle: ${cameraAngle} degrees rotation, ${cameraVertical} degrees vertical tilt. `;
+
+  // Positioning
+  if (subjectPosition === 'top') {
+    camPrompt += "COMPOSITION: Subject positioned at the TOP of the frame. Leave ample negative space at the bottom for text/overlay. ";
+  } else if (subjectPosition === 'bottom') {
+    camPrompt += "COMPOSITION: Subject positioned at the BOTTOM of the frame. Leave ample negative space at the top for text/overlay. ";
+  } else {
+    camPrompt += "COMPOSITION: Perfectly centered subject. Symmetrical balance. ";
+  }
+
   return camPrompt;
 };
 
@@ -64,43 +76,58 @@ const getLightingPrompt = (config: DesignConfig): string => {
     return lightPrompt;
 };
 
-export const constructPrompt = (config: DesignConfig, isRefinement: boolean = false): string => {
+export const constructPrompt = (config: DesignConfig, isRefinement: boolean = false, isVariation: boolean = false, isReformat: boolean = false): string => {
   const niche = NICHES.find(n => n.id === config.niche);
   
   // ---------------------------------------------------------
-  // MODE: CHARACTER GENERATION (IDENTITY SWAP/MERGE)
+  // PRIORITY 0: REFORMATTING (ASPECT RATIO CHANGE)
   // ---------------------------------------------------------
-  if (config.isCharacterGen) {
-    let prompt = "TASK: IDENTITY PRESERVATION AND CHARACTER GENERATION. ";
-    prompt += "I have provided two images. ";
-    
-    prompt += "STEP 1 - IDENTITY EXTRACTION (IMAGE 1): Analyze the FIRST image provided. Strictly capture the DNA/Identity of this person: their facial features, eye shape, nose structure, mouth, skin tone, ethnicity, age, and hair style. Keep this identity constant. ";
-    
-    prompt += "STEP 2 - CONTEXT & STYLE EXTRACTION (IMAGE 2): Analyze the SECOND image provided. Ignore the person in it. Extract strictly: the clothing/outfit, the pose, the camera angle, the lighting setup, the background environment, and the artistic style/vibe. ";
-    
-    prompt += "STEP 3 - SYNTHESIS: Generate a new photorealistic image. Put the Person from Image 1 (Identity) into the Clothing/Pose/Context of Image 2. ";
-    prompt += "The result must look like the person from Image 1 is wearing the clothes and performing the action shown in Image 2. ";
-    
-    if (config.subjectDescription) prompt += `Additional Instructions: ${config.subjectDescription}. `;
+  // Logic: STRICT consistency. Do not change the subject. Just extend background.
+  if (isReformat) {
+      let prompt = `TASK: IMAGE EXTENSION / OUTPAINTING. `;
+      prompt += `I have provided an image. You must adapt this EXACT image to the new aspect ratio of ${config.aspectRatio}. `;
+      prompt += `CRITICAL: Do NOT change the main subject, their pose, their face, or the core lighting. Keep the central content identical. `;
+      prompt += `ACTION: Analyze the background environment and "paint" the missing areas to fit the new frame. `;
+      prompt += `If the image is becoming taller, extend the floor/sky. If wider, extend the side environment. `;
+      prompt += `Maintain seamless continuity with the original image style. Quality: 8k.`;
+      return prompt;
+  }
+
+  // ---------------------------------------------------------
+  // PRIORITY 1: VARIATION MODE
+  // ---------------------------------------------------------
+  if (isVariation) {
+    return `Create a creative variation of the provided image. Keep the same subject, style, and composition, but change the specific details, pose slightly, and lighting nuance. The goal is to provide an alternative option of the same concept. Quality: 8k.`;
+  }
+
+  // ---------------------------------------------------------
+  // PRIORITY 2: REFINEMENT / EDIT MODE (Chat Assistant)
+  // ---------------------------------------------------------
+  if (isRefinement) {
+    let prompt = `IMAGE EDITING TASK. `;
+    prompt += `I have provided an image. You must EDIT this image based strictly on the user's instruction. `;
+    prompt += `User Instruction: "${config.subjectDescription}". `;
     
     prompt += getLightingPrompt(config);
-    prompt += `Quality: 8k, photorealistic, cinematic, consistent identity.`;
+    prompt += getCameraPrompt(config);
+
+    prompt += `Maintain the overall composition, identity, character features, and style of the provided image, ONLY changing what is explicitly requested in the instruction. `;
+    prompt += `Quality: 8k, photorealistic.`;
     return prompt;
   }
 
   // ---------------------------------------------------------
-  // MODE: STANDARD COMPOSITION
+  // PRIORITY 3: CREATION MODE (Standard)
   // ---------------------------------------------------------
-  let prompt = isRefinement 
-    ? `Edit mode. Maintain composition. ` 
-    : `Create a professional high-end advertising image. `;
+
+  let prompt = `Create a professional high-end advertising image. `;
   
   if (config.subjectDescription) prompt += `Subject: ${config.subjectDescription}. `;
   if (config.secondaryImage) prompt += `Integrate elements/style from the second reference image provided into the main composition. `;
 
-  prompt += getCameraPrompt(config.cameraAngle, config.cameraVertical, config.cameraZoom);
+  prompt += getCameraPrompt(config); 
   
-  if (niche) prompt += `Style: ${niche.promptModifier}. `;
+  if (niche) prompt += `Style & Ambience: ${niche.promptModifier}. `;
   
   prompt += getLightingPrompt(config);
 
@@ -109,29 +136,37 @@ export const constructPrompt = (config: DesignConfig, isRefinement: boolean = fa
   return prompt;
 };
 
-export const generateDesign = async (config: DesignConfig, previousImage?: string): Promise<string> => {
+export const generateDesign = async (config: DesignConfig, previousImage?: string, isVariation: boolean = false, isReformat: boolean = false): Promise<string> => {
   try {
     const isRefinement = !!previousImage;
-    const prompt = constructPrompt(config, isRefinement);
+    const prompt = constructPrompt(config, isRefinement, isVariation, isReformat);
     const parts: any[] = [{ text: prompt }];
 
-    // 1. Primary Image (Subject/Identity)
     if (previousImage) {
+        // ---------------------------------------------------------
+        // IMAGE-TO-IMAGE FLOW (Refinement, Variation, Reformat)
+        // ---------------------------------------------------------
         const base64Data = previousImage.includes('base64,') ? previousImage.split(',')[1] : previousImage;
         parts.push({ inlineData: { mimeType: 'image/png', data: base64Data } });
-    } else if (config.subjectImage) {
-        const base64Data = config.subjectImage.split(',')[1];
-        parts.push({ inlineData: { mimeType: 'image/png', data: base64Data } });
-        // Tagging image for the model
-        parts[0].text += " [IMAGE 1: MAIN SUBJECT/IDENTITY SOURCE]";
-    }
+        
+        if (isReformat) parts[0].text += " [SOURCE IMAGE FOR RESIZING]";
+        else parts[0].text += " [SOURCE IMAGE]";
 
-    // 2. Secondary Image (Reference/Style/Pose)
-    if (config.secondaryImage) {
-         const base64Data = config.secondaryImage.split(',')[1];
-         parts.push({ inlineData: { mimeType: 'image/png', data: base64Data } });
-         // Tagging image for the model
-         parts[0].text += " [IMAGE 2: REFERENCE STYLE/POSE/CLOTHING]";
+    } else {
+        // ---------------------------------------------------------
+        // TEXT-TO-IMAGE FLOW (Creation)
+        // ---------------------------------------------------------
+        if (config.subjectImage) {
+            const base64Data = config.subjectImage.split(',')[1];
+            parts.push({ inlineData: { mimeType: 'image/png', data: base64Data } });
+            parts[0].text += " [IMAGE 1: MAIN SUBJECT]";
+        }
+
+        if (config.secondaryImage) {
+             const base64Data = config.secondaryImage.split(',')[1];
+             parts.push({ inlineData: { mimeType: 'image/png', data: base64Data } });
+             parts[0].text += " [IMAGE 2: REFERENCE STYLE/ELEMENTS]";
+        }
     }
 
     const response = await ai.models.generateContent({

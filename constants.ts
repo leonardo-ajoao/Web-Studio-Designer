@@ -1,6 +1,6 @@
 import { NicheOption, DesignConfig } from './types';
 
-export const NICHES: (NicheOption & { iconId: string })[] = [
+export const NICHES: NicheOption[] = [
   {
     id: 'auto',
     label: 'IA Decide',
@@ -15,25 +15,25 @@ export const NICHES: (NicheOption & { iconId: string })[] = [
   },
   { 
     id: 'dental', 
-    label: 'Odontologia', 
+    label: 'Clínico', 
     promptModifier: 'pristine medical aesthetic, bright white and teal lighting, clean, sterile environment, confident smiling professional vibe',
     iconId: 'stethoscope'
   },
   { 
     id: 'workshop', 
-    label: 'Oficina', 
+    label: 'Industrial', 
     promptModifier: 'gritty garage texture, dramatic lighting, metallic surfaces, high contrast, warm orange and steel gray tones',
     iconId: 'wrench'
   },
   { 
     id: 'fashion', 
-    label: 'Moda', 
+    label: 'Editorial', 
     promptModifier: 'editorial studio lighting, minimal background, focus on texture and fabric, high fashion pose, soft shadows',
     iconId: 'shirt'
   },
   { 
     id: 'tech', 
-    label: 'Tecnologia', 
+    label: 'Futurista', 
     promptModifier: 'modern minimalist, isometric 3D elements, glassmorphism, soft gradients, futuristic',
     iconId: 'cpu'
   }
@@ -43,13 +43,13 @@ export const INITIAL_CONFIG: DesignConfig = {
   subjectImage: null,
   secondaryImage: null,
   subjectDescription: '',
-  isCharacterGen: false,
+  subjectPosition: 'center', 
   cameraAngle: 0,
   cameraVertical: 0,
   cameraZoom: 5,
   niche: NICHES[0].id,
-  backgroundColor: '#111111', // Default dark background for contrast
-  lightingColor: '#00ff00',   // Default Green Neon (like image 1)
+  backgroundColor: '#111111', 
+  lightingColor: '#3b82f6',   // Default to Blue
   lightingDirection: 'top-right',
   rimLight: false,
   fillLight: false,

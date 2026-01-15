@@ -5,7 +5,6 @@ import ChatInterface from './components/ChatInterface';
 import { DesignConfig, Message, AspectRatio } from './types';
 import { INITIAL_CONFIG } from './constants';
 import { generateDesign, upscaleImage } from './services/geminiService';
-import { GripVertical } from 'lucide-react';
 
 const App: React.FC = () => {
   const [config, setConfig] = useState<DesignConfig>(INITIAL_CONFIG);
@@ -71,29 +70,54 @@ const App: React.FC = () => {
     }]);
   };
 
-  const executeGeneration = async (currentConfig: DesignConfig, logUserMessage: boolean = true, previousImage?: string) => {
+  const handleReset = () => {
+      if (window.confirm("Deseja apagar tudo e começar um novo projeto?")) {
+          setConfig(INITIAL_CONFIG);
+          setGeneratedImage(null);
+          setHistory([]);
+          setMessages([{
+              id: Date.now().toString(),
+              role: 'model',
+              text: 'Projeto reiniciado. Vamos começar de novo!',
+              timestamp: new Date()
+          }]);
+      }
+  };
+
+  const executeGeneration = async (
+      currentConfig: DesignConfig, 
+      logUserMessage: boolean = true, 
+      previousImage?: string, 
+      isVariation: boolean = false,
+      isReformat: boolean = false // New flag
+  ) => {
     setIsProcessing(true);
     setIsTyping(true);
 
     if (logUserMessage) {
-       const promptSummary = previousImage 
-        ? `Refinar imagem: ${currentConfig.subjectDescription}`
-        : currentConfig.niche === 'auto' 
-            ? `Criar imagem (IA Decide) - ${currentConfig.subjectDescription || 'automático'}`
-            : `Criar imagem (${currentConfig.niche}) - ${currentConfig.subjectDescription || 'automático'}`;
+       let promptSummary = '';
+       if (isReformat) {
+           promptSummary = `Ajustar formato para ${currentConfig.aspectRatio} (Manter sujeito)`;
+       } else if (isVariation) {
+           promptSummary = 'Criar variação criativa desta imagem';
+       } else if (previousImage) {
+           promptSummary = `Refinar imagem: ${currentConfig.subjectDescription}`;
+       } else {
+           promptSummary = `Criar imagem (${currentConfig.niche}) - ${currentConfig.subjectDescription || 'automático'}`;
+       }
             
        addMessage('user', promptSummary);
     }
 
     try {
-      // Pass previousImage to service to trigger refinement/edit mode
-      const imageUrl = await generateDesign(currentConfig, previousImage);
+      // Pass parameters to service
+      const imageUrl = await generateDesign(currentConfig, previousImage, isVariation, isReformat);
       
       setGeneratedImage(imageUrl);
       setHistory(prev => [imageUrl, ...prev]);
       
       setIsTyping(false);
-      addMessage('model', 'Design gerado com sucesso.', imageUrl);
+      addMessage('model', isVariation ? 'Variação gerada.' : isReformat ? 'Formato ajustado com sucesso.' : 'Design gerado com sucesso.', imageUrl);
     } catch (error) {
       setIsTyping(false);
       addMessage('model', 'Desculpe, tive um problema ao gerar a imagem. Tente novamente.');
@@ -109,10 +133,6 @@ const App: React.FC = () => {
   };
 
   const handleChatRequest = async (text: string) => {
-    // If we have an image, we are refining it.
-    // If not, we are starting fresh with chat input.
-    
-    // Update config with the refinement text
     const newConfig = { ...config, subjectDescription: text };
     setConfig(newConfig);
 
@@ -123,6 +143,11 @@ const App: React.FC = () => {
         // NEW GENERATION MODE
         executeGeneration(newConfig, true);
     }
+  };
+
+  const handleVariation = async () => {
+      if (!generatedImage) return;
+      executeGeneration(config, true, generatedImage, true, false);
   };
 
   const handleUpscale = async () => {
@@ -152,14 +177,16 @@ const App: React.FC = () => {
     const newConfig = { ...config, aspectRatio: ratio };
     setConfig(newConfig);
     
-    addMessage('user', `Alterar formato para ${ratio}`);
-    
-    // If we have an image, try to re-generate using it as base (refine) or start fresh
-    executeGeneration(newConfig, false); 
+    // Trigger Reformat Logic
+    if (generatedImage) {
+        executeGeneration(newConfig, true, generatedImage, false, true); // isReformat = true
+    } else {
+        addMessage('user', `Formato definido: ${ratio}`);
+    }
   };
 
   return (
-    <div ref={containerRef} className="flex h-screen w-screen bg-grid-pattern text-gray-900 font-sans selection:bg-brand-200 overflow-hidden">
+    <div ref={containerRef} className="flex h-screen w-screen bg-slate-50 text-slate-900 font-sans selection:bg-brand-200 overflow-hidden">
       
       {/* 1. Control Panel (Left) */}
       <div style={{ width: sidebarWidth, minWidth: 300, maxWidth: 600 }} className="relative flex-shrink-0">
@@ -168,6 +195,7 @@ const App: React.FC = () => {
             setConfig={setConfig} 
             onGenerate={handleGenerate}
             isGenerating={isProcessing}
+            onReset={handleReset}
         />
         {/* Resize Handle Right */}
         <div 
@@ -177,7 +205,7 @@ const App: React.FC = () => {
                 document.body.style.cursor = 'col-resize';
             }}
         >
-            <div className="h-8 w-1 rounded-full bg-gray-300 group-hover:bg-brand-500 transition-colors" />
+            <div className="h-8 w-1 rounded-full bg-slate-300 group-hover:bg-brand-500 transition-colors" />
         </div>
       </div>
 
@@ -186,6 +214,7 @@ const App: React.FC = () => {
         imageUrl={generatedImage}
         history={history}
         onUpscale={handleUpscale}
+        onVariation={handleVariation} 
         onRatioChange={handleRatioChange}
         onSelectHistory={setGeneratedImage}
         isProcessing={isProcessing}
@@ -202,12 +231,14 @@ const App: React.FC = () => {
                 document.body.style.cursor = 'col-resize';
             }}
         >
-             <div className="h-8 w-1 rounded-full bg-gray-300 group-hover:bg-brand-500 transition-colors" />
+             <div className="h-8 w-1 rounded-full bg-slate-300 group-hover:bg-brand-500 transition-colors" />
         </div>
         <ChatInterface 
             messages={messages}
             onSendMessage={handleChatRequest}
             isTyping={isTyping}
+            config={config}        
+            setConfig={setConfig}  
         />
       </div>
       
