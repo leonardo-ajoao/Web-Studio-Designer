@@ -4,7 +4,7 @@ import {
   Wand2, Sparkles, Loader2, Plus, ArrowUpLeft, ArrowUp, ArrowUpRight,
   ArrowLeft, Circle, ArrowRight, ArrowDownLeft, ArrowDown, ArrowDownRight,
   Camera, Layers, Aperture, Command, Trash2, AlignVerticalJustifyCenter, AlignVerticalJustifyStart, AlignVerticalJustifyEnd,
-  Cpu, Megaphone, Stethoscope, Wrench, Shirt, Sun, RotateCcw, FolderOpen, Clock, X, Grid2X2
+  Cpu, Megaphone, Stethoscope, Wrench, Shirt, Sun, RotateCcw, FolderOpen, Clock, X, Grid2X2, ToggleLeft, ToggleRight
 } from 'lucide-react';
 import { DesignConfig, NicheOption, ProjectState } from '../types';
 import { NICHES } from '../constants';
@@ -293,7 +293,7 @@ const Sidebar: React.FC<SidebarProps> = ({ config, setConfig, onGenerate, isGene
         </section>
 
         {/* --- MODULE 2: AMBIENCE & LIGHTING (Merged) --- */}
-        <section className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 relative group/section">
+        <section className={`bg-white rounded-2xl p-5 shadow-sm border transition-all relative group/section ${config.studioLightActive ? 'border-brand-200' : 'border-slate-100'}`}>
              <div className="flex items-center justify-between mb-4">
                  <div className="flex items-center gap-2 text-brand-700">
                     <Sun size={16} strokeWidth={2.5} />
@@ -301,10 +301,51 @@ const Sidebar: React.FC<SidebarProps> = ({ config, setConfig, onGenerate, isGene
                  </div>
                  
                  <div className="flex items-center gap-2">
-                     <Tooltip text="Resetar Luz">
-                         <button onClick={resetLighting} className="p-1 text-slate-300 hover:text-slate-500 transition-colors"><RotateCcw size={14}/></button>
+                     <Tooltip text={config.studioLightActive ? "Desativar Iluminação" : "Ativar Iluminação"}>
+                        <button 
+                            onClick={() => setConfig({...config, studioLightActive: !config.studioLightActive})}
+                            className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-bold transition-all ${config.studioLightActive ? 'bg-brand-100 text-brand-700' : 'bg-slate-100 text-slate-400'}`}
+                        >
+                            {config.studioLightActive ? <ToggleRight size={18}/> : <ToggleLeft size={18}/>}
+                            {config.studioLightActive ? 'ON' : 'OFF'}
+                        </button>
                      </Tooltip>
-                     {/* Rim Light Toggle */}
+                     
+                     {config.studioLightActive && (
+                         <Tooltip text="Resetar Luz">
+                             <button onClick={resetLighting} className="p-1 text-slate-300 hover:text-slate-500 transition-colors"><RotateCcw size={14}/></button>
+                         </Tooltip>
+                     )}
+                 </div>
+             </div>
+
+             {/* Only show controls if Active */}
+             <div className={`space-y-4 transition-all duration-300 ${config.studioLightActive ? 'opacity-100' : 'opacity-40 pointer-events-none grayscale'}`}>
+                 
+                 {/* Niche Selector (Ambience) */}
+                 <div className="mb-4">
+                     <label className="text-[10px] font-bold text-slate-400 uppercase mb-2 block">Ambientação (Estilo)</label>
+                     <div className="grid grid-cols-3 gap-2">
+                         {NICHES.map((niche) => (
+                             <button
+                                key={niche.id}
+                                onClick={() => setConfig({...config, niche: niche.id})}
+                                className={`flex flex-col items-center justify-center p-2 rounded-xl border transition-all ${
+                                    config.niche === niche.id 
+                                    ? 'bg-brand-50 border-brand-200 text-brand-700' 
+                                    : 'bg-white border-slate-100 text-slate-400 hover:border-brand-200 hover:text-brand-500'
+                                }`}
+                             >
+                                 {IconMap[niche.iconId] || <Wand2 size={16}/>}
+                                 <span className="text-[9px] font-bold mt-1 truncate w-full text-center">{niche.label}</span>
+                             </button>
+                         ))}
+                     </div>
+                 </div>
+
+                 {/* Rim Light Toggle */}
+                 <div className="flex items-center justify-between border-t border-slate-100 pt-2">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase">Rim Light (Contorno)</span>
                      <button 
                         onClick={() => setConfig({...config, rimLight: !config.rimLight})}
                         className={`w-8 h-5 rounded-full p-0.5 transition-colors ${config.rimLight ? 'bg-brand-500' : 'bg-slate-200'}`}
@@ -312,54 +353,33 @@ const Sidebar: React.FC<SidebarProps> = ({ config, setConfig, onGenerate, isGene
                         <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${config.rimLight ? 'translate-x-3' : 'translate-x-0'}`} />
                      </button>
                  </div>
-             </div>
-
-             {/* Niche Selector (Ambience) */}
-             <div className="mb-4">
-                 <label className="text-[10px] font-bold text-slate-400 uppercase mb-2 block">Ambientação (Estilo)</label>
-                 <div className="grid grid-cols-3 gap-2">
-                     {NICHES.map((niche) => (
-                         <button
-                            key={niche.id}
-                            onClick={() => setConfig({...config, niche: niche.id})}
-                            className={`flex flex-col items-center justify-center p-2 rounded-xl border transition-all ${
-                                config.niche === niche.id 
-                                ? 'bg-brand-50 border-brand-200 text-brand-700' 
-                                : 'bg-white border-slate-100 text-slate-400 hover:border-brand-200 hover:text-brand-500'
-                            }`}
-                         >
-                             {IconMap[niche.iconId] || <Wand2 size={16}/>}
-                             <span className="text-[9px] font-bold mt-1 truncate w-full text-center">{niche.label}</span>
-                         </button>
-                     ))}
+                 
+                 {/* Lighting Controls (Expanded) */}
+                 <div className={`space-y-4 overflow-hidden transition-all duration-300 ${config.rimLight ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>
+                    <div className="flex gap-4">
+                         <div className="flex-1">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase mb-2 block">Direção</label>
+                            <LightGrid selected={config.lightingDirection} onSelect={(dir) => setConfig({...config, lightingDirection: dir})} />
+                         </div>
+                         <div className="flex flex-col items-center justify-start pt-6">
+                            <input 
+                                type="color" 
+                                value={config.lightingColor}
+                                onChange={(e) => setConfig({...config, lightingColor: e.target.value})}
+                                className="w-10 h-10 rounded-full overflow-hidden cursor-pointer border-2 border-slate-200 p-0"
+                                title="Cor da Luz"
+                            />
+                            <span className="text-[9px] font-mono text-slate-400 mt-1">{config.lightingColor}</span>
+                         </div>
+                    </div>
+                    <button 
+                        onClick={() => setConfig({...config, fillLight: !config.fillLight})}
+                        className={`w-full py-2 rounded-lg text-[10px] font-bold border transition-all ${config.fillLight ? 'bg-brand-50 border-brand-200 text-brand-600' : 'bg-white border-slate-200 text-slate-400'}`}
+                    >
+                        {config.fillLight ? 'Preenchimento: ON' : 'Preenchimento: OFF'}
+                    </button>
                  </div>
-             </div>
-             
-             {/* Lighting Controls (Only if Active) */}
-             <div className={`space-y-4 overflow-hidden transition-all duration-300 ${config.rimLight ? 'max-h-96 opacity-100 pt-2 border-t border-slate-100' : 'max-h-0 opacity-0'}`}>
-                <div className="flex gap-4">
-                     <div className="flex-1">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase mb-2 block">Direção</label>
-                        <LightGrid selected={config.lightingDirection} onSelect={(dir) => setConfig({...config, lightingDirection: dir})} />
-                     </div>
-                     <div className="flex flex-col items-center justify-start pt-6">
-                        <input 
-                            type="color" 
-                            value={config.lightingColor}
-                            onChange={(e) => setConfig({...config, lightingColor: e.target.value})}
-                            className="w-10 h-10 rounded-full overflow-hidden cursor-pointer border-2 border-slate-200 p-0"
-                            title="Cor da Luz"
-                        />
-                        <span className="text-[9px] font-mono text-slate-400 mt-1">{config.lightingColor}</span>
-                     </div>
-                </div>
-                <button 
-                    onClick={() => setConfig({...config, fillLight: !config.fillLight})}
-                    className={`w-full py-2 rounded-lg text-[10px] font-bold border transition-all ${config.fillLight ? 'bg-brand-50 border-brand-200 text-brand-600' : 'bg-white border-slate-200 text-slate-400'}`}
-                >
-                    {config.fillLight ? 'Preenchimento: ON' : 'Preenchimento: OFF'}
-                </button>
-             </div>
+            </div>
         </section>
 
         {/* --- MODULE 3: LENSES (Improved Visuals) --- */}
@@ -414,21 +434,21 @@ const Sidebar: React.FC<SidebarProps> = ({ config, setConfig, onGenerate, isGene
 
       {/* FOOTER */}
       <div className="p-6 pt-2 bg-slate-50 border-t border-slate-200 space-y-3">
-        {/* Quantity Selector */}
-        <div className="flex items-center justify-between bg-white rounded-lg p-1 border border-slate-200">
-             <div className="flex items-center gap-2 px-2">
-                 <Grid2X2 size={14} className="text-slate-400"/>
+        {/* Quantity Selector - Styled as Segmented Control */}
+        <div className="flex items-center justify-between bg-white rounded-xl p-2 border border-slate-200">
+             <div className="flex items-center gap-2 px-1">
+                 <Grid2X2 size={16} className="text-slate-400"/>
                  <span className="text-[10px] font-bold text-slate-500 uppercase">Variações</span>
              </div>
-             <div className="flex">
+             <div className="flex bg-slate-100 rounded-lg p-1">
                  {[1, 2, 3, 4].map((num) => (
                      <button
                         key={num}
                         onClick={() => setConfig({...config, imageCount: num as any})}
                         className={`w-8 h-7 text-xs font-bold rounded-md transition-all ${
                             config.imageCount === num 
-                            ? 'bg-brand-600 text-white shadow-sm' 
-                            : 'text-slate-400 hover:text-brand-600 hover:bg-slate-50'
+                            ? 'bg-white text-brand-600 shadow-sm' 
+                            : 'text-slate-400 hover:text-slate-600'
                         }`}
                      >
                          {num}

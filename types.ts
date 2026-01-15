@@ -14,6 +14,7 @@ export interface DesignConfig {
   niche: string; // Ambientação / Style
   
   // Advanced Lighting
+  studioLightActive: boolean; // New: Master toggle for lighting section
   backgroundColor: string;
   lightingColor: string; 
   lightingDirection: string; 
@@ -32,7 +33,7 @@ export interface Message {
   role: 'user' | 'model';
   text?: string;
   imageUrl?: string;
-  imageCandidates?: string[]; // New: Store multiple options in chat history
+  imageCandidates?: string[]; 
   isThinking?: boolean;
   timestamp: Date;
 }
@@ -52,7 +53,6 @@ export interface GenerationState {
   currentTask: string;
 }
 
-// New: Defines a saved project state
 export interface ProjectState {
   id: string;
   name: string;

@@ -2,14 +2,14 @@ import React, { useState, useRef, useEffect } from 'react';
 import { 
   Download, Maximize2, Sparkles, 
   Smartphone, Monitor, Instagram, RefreshCcw, Image, 
-  History, ZoomIn, ZoomOut, Shuffle, CheckCircle
+  History, ZoomIn, ZoomOut, Shuffle, CheckCircle, ArrowLeftRight, X
 } from 'lucide-react';
 import { AspectRatio } from '../types';
 
 interface CanvasProps {
   imageUrl: string | null;
-  candidates?: string[]; // New: Array of generated images
-  onSelectCandidate: (url: string) => void; // New: Selection handler
+  candidates?: string[]; 
+  onSelectCandidate: (url: string) => void;
   history: string[];
   onUpscale: () => void;
   onVariation: () => void;
@@ -17,6 +17,12 @@ interface CanvasProps {
   onSelectHistory: (url: string) => void;
   isProcessing: boolean;
   currentRatio: AspectRatio;
+  
+  // New props for comparison
+  isComparing: boolean;
+  beforeImage: string | null;
+  afterImage: string | null;
+  onCloseComparison: () => void;
 }
 
 const Tooltip: React.FC<{ text: string; children: React.ReactNode }> = ({ text, children }) => (
@@ -29,8 +35,86 @@ const Tooltip: React.FC<{ text: string; children: React.ReactNode }> = ({ text, 
   </div>
 );
 
+// Comparison Slider Component
+const ComparisonSlider = ({ before, after, onClose }: { before: string, after: string, onClose: () => void }) => {
+    const [sliderPos, setSliderPos] = useState(50);
+    const [isDragging, setIsDragging] = useState(false);
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    const handleMove = (clientX: number) => {
+        if (!containerRef.current) return;
+        const rect = containerRef.current.getBoundingClientRect();
+        const x = Math.max(0, Math.min(clientX - rect.left, rect.width));
+        setSliderPos((x / rect.width) * 100);
+    };
+
+    const handleMouseDown = () => setIsDragging(true);
+    const handleMouseUp = () => setIsDragging(false);
+    const handleMouseMove = (e: React.MouseEvent) => { if (isDragging) handleMove(e.clientX); };
+    const handleTouchMove = (e: React.TouchEvent) => { if (isDragging) handleMove(e.touches[0].clientX); };
+
+    useEffect(() => {
+        const handleGlobalUp = () => setIsDragging(false);
+        window.addEventListener('mouseup', handleGlobalUp);
+        window.addEventListener('touchend', handleGlobalUp);
+        return () => {
+            window.removeEventListener('mouseup', handleGlobalUp);
+            window.removeEventListener('touchend', handleGlobalUp);
+        };
+    }, []);
+
+    return (
+        <div className="relative w-full h-full flex flex-col items-center justify-center bg-gray-900 p-8">
+            <div className="absolute top-4 right-4 z-50">
+                <button onClick={onClose} className="p-2 bg-white/20 hover:bg-white/40 rounded-full text-white backdrop-blur-md transition-all">
+                    <X size={20} />
+                </button>
+            </div>
+            
+            <div className="text-white font-bold text-xl mb-4 flex items-center gap-2">
+                <ArrowLeftRight size={24} /> Comparativo Upscale
+            </div>
+            
+            <div 
+                ref={containerRef}
+                className="relative w-full max-w-5xl h-[80vh] bg-black rounded-lg overflow-hidden shadow-2xl cursor-col-resize select-none"
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onTouchStart={handleMouseDown}
+                onTouchMove={handleTouchMove}
+            >
+                {/* After Image (Background) */}
+                <img src={after} className="absolute inset-0 w-full h-full object-contain pointer-events-none" />
+                
+                {/* Before Image (Foreground with Clip) */}
+                <div 
+                    className="absolute inset-0 w-full h-full overflow-hidden bg-black pointer-events-none"
+                    style={{ clipPath: `inset(0 ${100 - sliderPos}% 0 0)` }}
+                >
+                    <img src={before} className="absolute inset-0 w-full h-full object-contain" />
+                </div>
+
+                {/* Slider Handle */}
+                <div 
+                    className="absolute top-0 bottom-0 w-1 bg-white cursor-ew-resize z-10 shadow-[0_0_10px_rgba(0,0,0,0.5)]"
+                    style={{ left: `${sliderPos}%` }}
+                >
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-lg text-brand-600">
+                        <ArrowLeftRight size={14} />
+                    </div>
+                </div>
+
+                {/* Labels */}
+                <div className="absolute bottom-4 left-4 bg-black/50 text-white px-3 py-1 rounded text-xs font-bold backdrop-blur-sm pointer-events-none">Original</div>
+                <div className="absolute bottom-4 right-4 bg-brand-600/80 text-white px-3 py-1 rounded text-xs font-bold backdrop-blur-sm pointer-events-none">Upscale 4K</div>
+            </div>
+        </div>
+    );
+};
+
 const Canvas: React.FC<CanvasProps> = ({ 
-    imageUrl, candidates, onSelectCandidate, history, onUpscale, onVariation, onRatioChange, onSelectHistory, isProcessing, currentRatio
+    imageUrl, candidates, onSelectCandidate, history, onUpscale, onVariation, onRatioChange, onSelectHistory, isProcessing, currentRatio,
+    isComparing, beforeImage, afterImage, onCloseComparison
 }) => {
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -70,6 +154,11 @@ const Canvas: React.FC<CanvasProps> = ({
         console.error("Download failed", e);
     }
   };
+
+  // Render Comparison Mode
+  if (isComparing && beforeImage && afterImage) {
+      return <ComparisonSlider before={beforeImage} after={afterImage} onClose={onCloseComparison} />;
+  }
 
   // Render Grid for Candidates
   if (candidates && candidates.length > 1) {

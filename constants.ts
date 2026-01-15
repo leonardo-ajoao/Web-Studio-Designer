@@ -48,11 +48,14 @@ export const INITIAL_CONFIG: DesignConfig = {
   cameraVertical: 0,
   cameraZoom: 5,
   niche: NICHES[0].id,
+  
+  studioLightActive: false, // Default OFF as requested
   backgroundColor: '#111111', 
   lightingColor: '#3b82f6',   // Default to Blue
   lightingDirection: 'top-right',
   rimLight: false,
   fillLight: false,
+  
   influence: 0.5,
   aspectRatio: '1:1',
   imageCount: 1

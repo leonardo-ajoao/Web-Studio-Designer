@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, Paperclip, MoreHorizontal, Sparkles, PenTool, Sliders, Zap, Camera, X, Grid2X2 } from 'lucide-react';
+import { Send, Bot, User, Paperclip, MoreHorizontal, Sparkles, PenTool, Sliders, Zap, Camera, X, Grid2X2, Check } from 'lucide-react';
 import { Message, DesignConfig } from '../types';
 
 interface ChatInterfaceProps {
@@ -8,9 +8,10 @@ interface ChatInterfaceProps {
   isTyping: boolean;
   config: DesignConfig;
   setConfig: React.Dispatch<React.SetStateAction<DesignConfig>>;
+  onApplyChanges: () => void; // New prop to trigger redesign
 }
 
-const ChatInterface: React.FC<ChatInterfaceProps> = ({ messages, onSendMessage, isTyping, config, setConfig }) => {
+const ChatInterface: React.FC<ChatInterfaceProps> = ({ messages, onSendMessage, isTyping, config, setConfig, onApplyChanges }) => {
   const [input, setInput] = useState('');
   const [showTools, setShowTools] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
@@ -49,18 +50,18 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ messages, onSendMessage, 
       <div className={`overflow-hidden transition-all duration-300 bg-slate-50 border-b border-slate-200 ${showTools ? 'max-h-96 opacity-100 shadow-inner' : 'max-h-0 opacity-0'}`}>
          <div className="p-4 space-y-4">
             <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold text-brand-600 uppercase tracking-widest bg-brand-100 px-2 py-0.5 rounded">Ajustes Rápidos</span>
+                <span className="text-[10px] font-bold text-brand-600 uppercase tracking-widest bg-brand-100 px-2 py-0.5 rounded">Ajustes de Redesign</span>
                 <button onClick={() => setShowTools(false)} className="text-slate-400 hover:text-red-500"><X size={16}/></button>
             </div>
             
             <div className="grid grid-cols-2 gap-4">
-                {/* Lighting Quick Toggle */}
+                {/* Lighting Quick Toggle - Note: This toggles studioLightActive implicitly for redesign context */}
                 <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
                     <div className="flex items-center gap-2 text-slate-700 font-bold text-xs mb-2">
                         <Zap size={14} className="text-brand-500" /> Luz (Rim)
                     </div>
                     <button 
-                        onClick={() => setConfig(prev => ({...prev, rimLight: !prev.rimLight}))}
+                        onClick={() => setConfig(prev => ({...prev, rimLight: !prev.rimLight, studioLightActive: true}))}
                         className={`w-full py-1.5 rounded-md text-[10px] font-bold transition-all border ${config.rimLight ? 'bg-brand-600 border-brand-600 text-white' : 'bg-slate-50 border-slate-200 text-slate-500'}`}
                     >
                         {config.rimLight ? 'ON' : 'OFF'}
@@ -80,6 +81,14 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ messages, onSendMessage, 
                     />
                 </div>
             </div>
+
+            {/* Apply Button */}
+            <button 
+                onClick={() => { onApplyChanges(); setShowTools(false); }}
+                className="w-full py-3 bg-brand-600 text-white rounded-lg font-bold text-xs shadow-md hover:bg-brand-700 transition-all flex items-center justify-center gap-2"
+            >
+                <Check size={16} /> Aplicar na Imagem Selecionada
+            </button>
          </div>
       </div>
 
@@ -159,14 +168,14 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ messages, onSendMessage, 
             </button>
             
             {/* Image Count Selector Chat */}
-            <div className="flex items-center gap-1 bg-slate-50 rounded-md p-0.5 border border-slate-200">
+            <div className="flex bg-slate-100 rounded-lg p-0.5">
                 {[1, 2, 3, 4].map((num) => (
                     <button
                         key={num}
                         onClick={() => setConfig({...config, imageCount: num as any})}
-                        className={`w-6 h-6 text-[10px] font-bold rounded transition-all ${
+                        className={`w-6 h-6 text-[10px] font-bold rounded-md transition-all ${
                             config.imageCount === num 
-                            ? 'bg-white text-brand-600 shadow-sm border border-slate-100' 
+                            ? 'bg-white text-brand-600 shadow-sm' 
                             : 'text-slate-400 hover:text-slate-600'
                         }`}
                         title={`Gerar ${num} versões`}

@@ -27,6 +27,11 @@ const App: React.FC = () => {
   
   const [savedProjects, setSavedProjects] = useState<ProjectState[]>([]);
 
+  // Upscale Comparison State
+  const [isComparing, setIsComparing] = useState(false);
+  const [beforeImage, setBeforeImage] = useState<string | null>(null);
+  const [afterImage, setAfterImage] = useState<string | null>(null);
+
   // Resize State
   const [sidebarWidth, setSidebarWidth] = useState(440);
   const [chatWidth, setChatWidth] = useState(360);
@@ -81,6 +86,8 @@ const App: React.FC = () => {
       // Only archive if there is content (an image or at least some prompt)
       const hasContent = generatedImage || config.subjectDescription.length > 5 || messages.length > 2;
 
+      // Force logic execution without window.confirm check if "nothing happens" (or user blindly clicks ok)
+      // Re-implementing with confirmation for safety but ensuring Reset runs.
       if (window.confirm(hasContent ? "Deseja salvar o projeto atual no histórico e iniciar um novo?" : "Iniciar novo projeto?")) {
           
           if (hasContent) {
@@ -96,11 +103,15 @@ const App: React.FC = () => {
               setSavedProjects(prev => [newProject, ...prev]);
           }
 
-          // Reset everything
+          // RESET STATE
           setConfig(INITIAL_CONFIG);
           setGeneratedImage(null);
           setCandidates([]);
           setHistory([]);
+          setIsComparing(false);
+          setBeforeImage(null);
+          setAfterImage(null);
+          
           setMessages([{
               id: Date.now().toString(),
               role: 'model',
@@ -117,6 +128,7 @@ const App: React.FC = () => {
           setCandidates([]);
           setHistory(project.history);
           setMessages(project.messages);
+          setIsComparing(false);
       }
   };
 
@@ -137,7 +149,7 @@ const App: React.FC = () => {
        } else if (isVariation) {
            promptSummary = `Criar ${currentConfig.imageCount || 1} variações criativas desta imagem`;
        } else if (previousImage) {
-           promptSummary = `Refinar imagem: ${currentConfig.subjectDescription}`;
+           promptSummary = `Refinar imagem: ${currentConfig.subjectDescription || 'ajustes aplicados'}`;
        } else {
            promptSummary = `Criar ${currentConfig.imageCount || 1}x imagens (${currentConfig.niche}) - ${currentConfig.subjectDescription || 'automático'}`;
        }
@@ -191,6 +203,20 @@ const App: React.FC = () => {
     }
   };
 
+  // Explicit handler for "Apply Changes" button in Chat Interface
+  const handleApplyRefinement = () => {
+      if (!generatedImage) {
+          alert("Gere uma imagem primeiro para aplicar ajustes.");
+          return;
+      }
+      // Force studio light active for this redesign if not already
+      const activeConfig = { ...config, studioLightActive: true };
+      setConfig(activeConfig);
+      
+      addMessage('user', 'Aplicar ajustes de iluminação/lentes na imagem atual.');
+      executeGeneration(activeConfig, false, generatedImage);
+  };
+
   const handleVariation = async () => {
       if (!generatedImage) return;
       executeGeneration(config, true, generatedImage, true, false);
@@ -206,17 +232,27 @@ const App: React.FC = () => {
 
   const handleUpscale = async () => {
     if (!generatedImage) return;
+    
+    // Store current as "Before"
+    const originalImage = generatedImage;
+    setBeforeImage(originalImage);
+
     setIsProcessing(true);
     addMessage('user', 'Melhorar resolução (Upscale)');
     setIsTyping(true);
 
     try {
         const upscaled = await upscaleImage(generatedImage);
+        
         setGeneratedImage(upscaled);
         setHistory(prev => [upscaled, ...prev]);
+        
+        // Setup Comparison
+        setAfterImage(upscaled);
+        setIsComparing(true);
 
         setIsTyping(false);
-        addMessage('model', 'Imagem restaurada e melhorada com sucesso.', upscaled);
+        addMessage('model', 'Imagem restaurada e melhorada com sucesso. Modo comparativo ativado.', upscaled);
     } catch (e) {
         setIsTyping(false);
         addMessage('model', 'Falha no upscale.');
@@ -268,15 +304,21 @@ const App: React.FC = () => {
       {/* 2. Canvas (Center) */}
       <Canvas 
         imageUrl={generatedImage}
-        candidates={candidates} // Pass multiple images if available
-        onSelectCandidate={handleSelectCandidate} // Pass selection handler
+        candidates={candidates} 
+        onSelectCandidate={handleSelectCandidate} 
         history={history}
         onUpscale={handleUpscale}
         onVariation={handleVariation} 
         onRatioChange={handleRatioChange}
-        onSelectHistory={(url) => { setGeneratedImage(url); setCandidates([]); }}
+        onSelectHistory={(url) => { setGeneratedImage(url); setCandidates([]); setIsComparing(false); }}
         isProcessing={isProcessing}
         currentRatio={config.aspectRatio}
+        
+        // Comparison Props
+        isComparing={isComparing}
+        beforeImage={beforeImage}
+        afterImage={afterImage}
+        onCloseComparison={() => setIsComparing(false)}
       />
 
       {/* 3. Chat/History (Right) */}
@@ -296,7 +338,8 @@ const App: React.FC = () => {
             onSendMessage={handleChatRequest}
             isTyping={isTyping}
             config={config}        
-            setConfig={setConfig}  
+            setConfig={setConfig}
+            onApplyChanges={handleApplyRefinement}  
         />
       </div>
       

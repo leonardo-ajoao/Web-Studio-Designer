@@ -55,6 +55,9 @@ const getCameraPrompt = (config: DesignConfig): string => {
 };
 
 const getLightingPrompt = (config: DesignConfig): string => {
+    // Only apply if the section is active
+    if (!config.studioLightActive) return "";
+
     let lightPrompt = "";
     
     if (config.rimLight) {
@@ -132,7 +135,13 @@ export const constructPrompt = (config: DesignConfig, isRefinement: boolean = fa
 
   prompt += getCameraPrompt(config); 
   
-  if (niche) prompt += `Style & Ambience: ${niche.promptModifier}. `;
+  // Ambience is part of Lighting/Studio section now generally, 
+  // but if disabled, we still might want promptModifier if user selected a niche but disabled manual lights.
+  // However, per request "Opção... se selecionar, aparece", implies disabling the whole section.
+  // We will respect studioLightActive for the Niche prompt too to keep it clean.
+  if (config.studioLightActive && niche) {
+      prompt += `Style & Ambience: ${niche.promptModifier}. `;
+  }
   
   prompt += getLightingPrompt(config);
 
